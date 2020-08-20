@@ -1,0 +1,356 @@
+---
+title: "AD_series"
+author: "Hugo Jiménez i Jaume Martínez"
+date: "6/1/2020"
+output: html_document
+---
+
+##Identificación del modelo 
+
+```{r}
+serie=ts(read.table("gasolina.dat"),start=1993,freq=12)
+
+plot(serie, main="Consumo de gasolina en España", ylab="miles de toneladas")
+abline(v=1993:2020,lty=3,col=4)
+```
+
+
+
+```{r}
+monthplot(serie)
+```
+
+
+
+
+```{r}
+lnserie <- log(serie)
+plot(lnserie, main="Consumo de gasolina en España", ylab="miles de toneladas")
+abline(v=1993:2020,lty=3,col=4)
+```
+```{r}
+m = apply(matrix(serie, nr = 12),2,mean)
+v = apply(matrix(serie, nr = 12),2,var)
+plot(m,v)
+abline(lm(v~m))
+```
+
+```{r}
+d12lnserie <- diff(lnserie, 12)
+plot(d12lnserie)
+```
+
+```{r}
+d1d12lnserie <- diff(d12lnserie)
+plot(d1d12lnserie)
+```
+
+```{r}
+d1d1d12lnserie <- diff(d1d12lnserie)
+plot(d1d1d12lnserie)
+
+```
+
+```{r}
+d1d1d1d12lnserie <- diff(d1d1d12lnserie)
+plot(d1d1d1d12lnserie)
+
+```
+
+```{r}
+var(lnserie)
+var(d12lnserie)
+var(d1d12lnserie)
+var(d1d1d12lnserie)
+var(d1d1d1d12lnserie)
+var(diff(d1d1d1d12lnserie))
+```
+
+```{r}
+acf(d1d12lnserie,ylim=c(-1,1),lag.max=72,col=c(2,rep(1,11)),lwd=2)
+pacf(d1d12lnserie,ylim=c(-1,1),lag.max=72,col=c(rep(1,11),2),lwd=2)
+```
+
+
+```{r}
+(mod = arima(d1d12lnserie,order=c(0,0,1),seasonal=list(order=c(0,0,1),period=12)))
+```
+
+
+
+```{r}
+(mod <- arima(lnserie,
+              order=c(4,1,0),
+              seasonal=list(order=c(3,1,0),period=12)))
+mod$coef/sqrt(diag(mod$var.coef))
+```
+
+```{r}
+(mod1 = arima(lnserie,order=c(4,1,0),seasonal=list(order=c(1,1,0),period=12)))
+mod1$coef/sqrt(diag(mod1$var.coef))
+```
+```{r}
+res1 <- resid(mod)
+res2 <- resid(mod1)
+
+```
+
+```{r}
+plot(res1); abline(h=0); abline(h=c(-3*sd(res1),3*sd(res1)),lty=3,col=4)
+plot(res2); abline(h=0); abline(h=c(-3*sd(res2),3*sd(res2)),lty=3,col=4)
+
+```
+```{r}
+scatter.smooth(sqrt(abs(res1)), lpars=list(col=2))
+scatter.smooth(sqrt(abs(res2)), lpars=list(col=2))
+```
+
+
+```{r}
+qqnorm(res1); qqline(res1,col=2,lwd=2)
+qqnorm(res2); qqline(res2,col=2,lwd=2)
+```
+```{r}
+hist(res1,breaks=20, freq=FALSE); curve(dnorm(x, mean=mean(res1), sd=sd(res1)), col=2, add=T)
+hist(res2,breaks=20, freq=FALSE); curve(dnorm(x, mean=mean(res2), sd=sd(res2)), col=2, add=T)
+```
+
+
+
+```{r}
+acf(resid(mod),ylim=c(-1,1),lag.max=60,col=c(2,rep(1,11)))
+pacf(resid(mod),ylim=c(-1,1),lag.max=60,col=c(rep(1,11),2))
+tsdiag(mod,gof.lag=72)
+acf(resid(mod1),ylim=c(-1,1),lag.max=60,col=c(2,rep(1,11)))
+pacf(resid(mod1),ylim=c(-1,1),lag.max=60,col=c(rep(1,11),2))
+tsdiag(mod1,gof.lag=72)
+```
+
+```{r}
+AIC(mod); BIC(mod)
+AIC(mod1); BIC(mod1)
+```
+
+
+```{r}
+Mod(polyroot(c(1,-mod$model$phi)))
+Mod(polyroot(c(1,mod$model$theta)))
+
+Mod(polyroot(c(1,-mod1$model$phi)))
+Mod(polyroot(c(1,mod1$model$theta)))
+```
+
+```{r}
+ultim=c(2018,12); serie2=window(serie, end=ultim)
+lnserie2 = log(serie2)
+(mod1_12 = arima(lnserie2,order=c(4,1,0),seasonal=list(order=c(3,1,0),period=12), include.mean = FALSE))
+(mod2_12 = arima(lnserie2,order=c(4,1,0),seasonal=list(order=c(1,1,0),period=12), include.mean = FALSE))
+```
+```{r}
+pred <- predict(mod1_12, n.ahead=12)
+
+pr1<-ts(c(tail(lnserie2,1),pred$pred),start=c(2018,12),freq=12)
+
+
+se <- predict(mod1_12, n.ahead=12)$se
+
+
+tl1<-ts(exp(pr1-1.96*se),start=c(2018,12),freq=12)
+tu1<-ts(exp(pr1+1.96*se),start=c(2018,12),freq=12)
+
+ts.plot(serie,tl1,tu1,exp(pr1),lty=c(1,2,2,1),col=c(1,4,4,2),xlim=c(2013,2020), type="l"); abline(v=2013:2020,lty=3,col=4)
+```
+```{r}
+pred <- predict(mod2_12, n.ahead=12)
+
+pr2<-ts(c(tail(lnserie2,1),pred$pred),start=c(2018,12),freq=12)
+
+
+se <- predict(mod2_12, n.ahead=12)$se
+
+
+tl2<-ts(exp(pr2-1.96*se),start=c(2018,12),freq=12)
+tu2<-ts(exp(pr2+1.96*se),start=c(2018,12),freq=12)
+
+ts.plot(serie,tl2,tu2,exp(pr2),lty=c(1,2,2,1),col=c(1,4,4,2),xlim=c(2013,2020), type="l"); abline(v=2013:2020,lty=3,col=4)
+```
+
+
+
+```{r}
+primer=c(2018,12); 
+obs = window(serie, start=primer)
+(RMSPE=sqrt(mean(((obs-exp(pr1))/obs)^2)))
+(MAPE=mean(abs(obs-exp(pr1))/obs))
+(ic1 <- mean(tu1-tl1))
+
+
+obs = window(serie, start=primer)
+(RMSPE1=sqrt(mean(((obs-exp(pr2))/obs)^2)))
+(MAPE1=mean(abs(obs-exp(pr2))/obs))
+mean(tu2-tl2)
+```
+```{r}
+pred <- predict(mod1, n.ahead=13)
+pr<-ts(c(tail(lnserie,1),pred$pred),start=c(2019,12),freq=12)
+se <- predict(mod1, n.ahead=13)$se
+tl<-ts(exp(pr-1.96*se),start=c(2020,1),freq=12)
+tu<-ts(exp(pr+1.96*se),start=c(2020,1),freq=12)
+ts.plot(serie,tl,tu,exp(pr),lty=c(1,2,2,1),col=c(1,4,4,2),xlim=c(2013,2021), type="l"); abline(v=2013:2021,lty=3,col=4)
+```
+
+
+
+
+
+```{r}
+source("atipics2.R")
+mod.atip = outdetect(mod1,dif=c(1,12), crit=2.8, LS=TRUE)
+atipics=mod.atip$atip[order(mod.atip$atip[,1]),]
+meses=c("Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic")
+data.frame(atipics,Fecha=paste(meses[(atipics[,1]-1)%%12+1],start(lnserie)[1]+((atipics[,1]-1)%/%12)))
+```
+
+
+```{r}
+lnserie.lin=lineal(lnserie, mod.atip$atip)
+serie.lin=exp(lnserie.lin)
+plot(serie.lin,col=2)
+lines(serie)
+```
+
+```{r}
+plot(lnserie-lnserie.lin)
+```
+
+```{r}
+plot(lnserie.lin)
+```
+
+Com tenim component estacional, fes una diferenciació estacional d'ordre 12. 
+```{r}
+d12lnserie.lin=diff(lnserie.lin,12)
+plot(d12lnserie.lin)
+```
+
+Com la mitjana no és constant fem una regularització regular
+```{r}
+d1d12lnserie.lin=diff(d12lnserie.lin)
+plot(d1d12lnserie.lin)
+```
+
+Com segueix sent no constant la mitjana tornem a fer la diferenciació
+
+```{r}
+d1d1d12lnserie.lin=diff(d1d12lnserie.lin)
+plot(d1d1d12lnserie.lin)
+```
+
+Comparant les variàncies veiem que si tornem a diferenciar, augmentaríem la variància.
+```{r}
+var(lnserie.lin)
+var(d12lnserie.lin)
+var(d1d12lnserie.lin)
+var(d1d1d12lnserie.lin)
+var(diff(d1d1d12lnserie.lin))
+```
+
+```{r}
+par(mfrow=c(1,2))
+acf(d1d12lnserie.lin,ylim=c(-1,1),lag.max=72,col=c(2,rep(1,11)),lwd=2)
+pacf(d1d12lnserie.lin,ylim=c(-1,1),lag.max=72,col=c(rep(1,11),2),lwd=2)
+```
+
+```{r}
+(mod.lin = arima(lnserie.lin,order=c(1,1,0),seasonal=list(order=c(4,1,0),period=12), include.mean = FALSE))
+```
+
+```{r}
+res.lin <- resid(mod.lin)
+```
+
+```{r}
+plot(res.lin); abline(h=0); abline(h=c(-3*sd(res.lin),3*sd(res.lin)),lty=3,col=4)
+```
+
+```{r}
+scatter.smooth(sqrt(abs(res.lin)), lpars=list(col=2))
+```
+
+
+```{r}
+qqnorm(res.lin); qqline(res.lin,col=2,lwd=2)
+```
+```{r}
+hist(res.lin,breaks=20, freq=FALSE); curve(dnorm(x, mean=mean(res.lin), sd=sd(res.lin)), col=2, add=T)
+```
+
+
+
+```{r}
+acf(resid(mod.lin),ylim=c(-1,1),lag.max=60,col=c(2,rep(1,11)))
+pacf(resid(mod.lin),ylim=c(-1,1),lag.max=60,col=c(rep(1,11),2))
+tsdiag(mod.lin,gof.lag=72)
+```
+```{r}
+AIC(mod.lin); BIC(mod.lin)
+```
+```{r}
+ultim=c(2018,12); lnserie2.lin=window(lnserie.lin, end=ultim)
+(mod.lin_12 = arima(lnserie2.lin,order=c(4,1,0),seasonal=list(order=c(1,1,0),period=12), include.mean = FALSE))
+```
+```{r}
+ultim=end(serie)-c(1,0)
+pdq=c(4,1,0)
+
+PDQ=c(1,1,0)
+serie1.lin=window(serie.lin,end=ultim+c(1,0))
+lnserie1.lin=log(serie1.lin)
+serie2.lin=window(serie.lin,end=ultim)
+lnserie2.lin=log(serie2.lin)
+
+(mod.lin=arima(lnserie1.lin,order=pdq,seasonal=list(order=PDQ,period=12)))
+(mod2.lin=arima(lnserie2.lin,order=pdq,seasonal=list(order=PDQ,period=12)))
+```
+
+```{r}
+pred=predict(mod2.lin,n.ahead=12)
+
+## Efecto de los cambios de nivel detectados
+wLS=sum(mod.atip$atip[mod.atip$atip$type_detected=="LS" & mod.atip$atip$Obs<=length(serie)-12,3])
+
+## Afectación de los LS a las predicciones de la serie linealizada
+predic=pred$pr+wLS
+
+pr<-ts(c(tail(lnserie2,1),predic),start=ultim,freq=12)
+se<-ts(c(0,pred$se),start=ultim,freq=12)
+
+#Intervalos
+tl<-ts(exp(pr-1.96*se),start=ultim,freq=12)
+tu<-ts(exp(pr+1.96*se),start=ultim,freq=12)
+pr<-ts(exp(pr),start=ultim,freq=12)
+
+ts.plot(serie,tl,tu,pr,lty=c(1,2,2,1),col=c(1,4,4,2),xlim=ultim[1]+c(-3,+2),type="o",main="Model ARIMA(4,1,1)(1,1,0)12")
+abline(v=(ultim[1]-2):(ultim[1]+2),lty=3,col=4)
+```
+
+```{r}
+primer=c(2019,1); 
+obs = window(serie, start=ultim)
+(RMSPE2=sqrt(mean(((obs-pr)/obs)^2)))
+(MAPE2=mean(abs(obs-pr)/obs))
+ic2<- mean(tu-tl)
+```
+```{r}
+resul=data.frame(
+  par=c(length(coef(mod1)),length(coef(mod.lin))+nrow(mod.atip$atip)),
+  Sigma2Z=c(mod1$sigma2,mod.lin$sigma2),
+  AIC=c(AIC(mod1),AIC(mod.lin)+2*nrow(mod.atip$atip)),
+  BIC=c(BIC(mod1),BIC(mod.lin)+log(length(serie)-13)*nrow(mod.atip$atip)),
+  RMSPE=c(RMSPE1,RMSPE2),
+  MAPE=c(MAPE1,MAPE2),
+  meanLength=c(ic1, ic2))
+row.names(resul)=c("ARIMA(4,1,0)(1,1,0)12","ARIMA(4,1,0)(1,1,0)12_NOATIPICS")
+resul
+```
+
